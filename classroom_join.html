@@ -1,0 +1,1201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Join Virtual Classroom - Emotion Aware System</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 3rem;
+            min-width: 400px;
+            text-align: center;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+        
+        h1 {
+            margin-bottom: 2rem;
+            font-size: 2rem;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+        
+        .form-group {
+            margin-bottom: 1.5rem;
+            text-align: left;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+        
+        input, select {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            font-size: 1rem;
+            backdrop-filter: blur(5px);
+        }
+        
+        input::placeholder {
+            color: rgba(255, 255, 255, 0.7);
+        }
+        
+        button {
+            width: 100%;
+            padding: 15px;
+            border: none;
+            border-radius: 8px;
+            background: #4CAF50;
+            color: white;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 1rem;
+        }
+        
+        button:hover {
+            background: #45a049;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+        
+        button:disabled {
+            background: #666;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .status {
+            margin-top: 1rem;
+            padding: 10px;
+            border-radius: 5px;
+            font-weight: 500;
+        }
+        
+        .status.success {
+            background: rgba(76, 175, 80, 0.3);
+        }
+        
+        .status.error {
+            background: rgba(244, 67, 54, 0.3);
+        }
+        
+        .classroom-interface {
+            display: none;
+            margin-top: 2rem;
+        }
+        
+        .video-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin: 1rem 0;
+            max-height: 60vh;
+            overflow-y: auto;
+            padding: 10px;
+            border-radius: 10px;
+            background: rgba(0, 0, 0, 0.1);
+        }
+        
+        .video-box {
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 15px;
+            padding: 5px;
+            min-height: 200px;
+            max-height: 300px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+            border: 2px solid transparent;
+            transition: all 0.3s ease;
+        }
+        
+        .video-box:hover {
+            border-color: rgba(255, 255, 255, 0.3);
+            transform: scale(1.02);
+        }
+        
+        .video-box.speaking {
+            border-color: #4CAF50;
+            box-shadow: 0 0 15px rgba(76, 175, 80, 0.5);
+        }
+        
+        .video-box.host {
+            border-color: #ff9800;
+            box-shadow: 0 0 15px rgba(255, 152, 0, 0.3);
+        }
+        
+        video {
+            width: 100%;
+            height: 100%;
+            border-radius: 8px;
+            object-fit: cover;
+            background: #1a1a1a;
+        }
+        
+        .avatar {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: linear-gradient(45deg, #3498db, #2ecc71);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: white;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+        }
+        
+        .participant-info {
+            position: absolute;
+            bottom: 8px;
+            left: 8px;
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            backdrop-filter: blur(5px);
+        }
+        
+        .emotion-indicator {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            border: 2px solid white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            font-weight: bold;
+            animation: emotionPulse 2s infinite;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .emotion-engaged { background: #2ecc71; }
+        .emotion-confused { background: #f39c12; }
+        .emotion-bored { background: #e74c3c; }
+        .emotion-neutral { background: #95a5a6; }
+        .emotion-curious { background: #9b59b6; }
+        .emotion-frustrated { background: #e67e22; }
+        .emotion-happy { background: #2ecc71; }
+        
+        .role-badge {
+            position: absolute;
+            top: 8px;
+            left: 8px;
+            background: rgba(255, 152, 0, 0.9);
+            color: white;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        
+        .role-badge.student {
+            background: rgba(33, 150, 243, 0.9);
+        }
+        
+        .video-controls {
+            position: absolute;
+            bottom: 8px;
+            right: 8px;
+            display: flex;
+            gap: 4px;
+        }
+        
+        .mini-control {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            color: white;
+            background: rgba(0,0,0,0.7);
+        }
+        
+        .mini-control.muted {
+            background: #e74c3c;
+        }
+        
+        .mini-control.active {
+            background: #2ecc71;
+        }
+        
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin: 1rem 0;
+        }
+        
+        .control-btn {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 5px;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+        
+        .control-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+        
+        .control-btn.active {
+            background: #4CAF50;
+        }
+        
+        .control-btn.muted {
+            background: #f44336;
+        }
+        
+        .chat-container {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+            padding: 1rem;
+            margin-top: 1rem;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .chat-message {
+            margin-bottom: 0.5rem;
+            padding: 5px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 5px;
+        }
+        
+        .chat-input {
+            display: flex;
+            gap: 10px;
+            margin-top: 1rem;
+        }
+        
+        .chat-input input {
+            flex: 1;
+        }
+        
+        .participants-panel {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+            padding: 1rem;
+            margin-top: 1rem;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .participants-panel h3 {
+            margin-bottom: 0.5rem;
+            color: white;
+        }
+        
+        .participant-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 5px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 5px;
+            margin-bottom: 5px;
+        }
+        
+        .admin-controls {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 15px;
+            border-radius: 10px;
+            color: white;
+            min-width: 250px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .admin-controls.hidden {
+            display: none;
+        }
+        
+        .emotion-summary {
+            margin: 10px 0;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 5px;
+        }
+        
+        .emotion-item {
+            display: flex;
+            justify-content: space-between;
+            margin: 5px 0;
+        }
+        
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        
+        .zoom-controls {
+            position: absolute;
+            top: 50%;
+            right: 10px;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        
+        .zoom-btn {
+            width: 40px;
+            height: 40px;
+            border: none;
+            border-radius: 50%;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.3s ease;
+        }
+        
+        .zoom-btn:hover {
+            background: rgba(0, 0, 0, 0.9);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎓 Join Virtual Classroom</h1>
+        
+        <div id="joinForm">
+            <div class="form-group">
+                <label for="username">Your Name:</label>
+                <input type="text" id="username" placeholder="Enter your name" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="role">Your Role:</label>
+                <select id="role">
+                    <option value="student">Student</option>
+                    <option value="instructor">Instructor</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="roomId">Room ID (optional):</label>
+                <input type="text" id="roomId" placeholder="Leave empty to create new room">
+            </div>
+            
+            <button onclick="joinClassroom()">Join Classroom</button>
+            
+            <div id="status" class="status" style="display: none;"></div>
+        </div>
+        
+        <div id="classroomInterface" class="classroom-interface">
+            <h2 id="roomTitle">Virtual Classroom</h2>
+            
+            <!-- Admin Controls Panel (only visible to instructors) -->
+            <div id="adminControls" class="admin-controls hidden">
+                <h3>📊 Instructor Dashboard</h3>
+                <div class="emotion-summary" id="emotionSummary">
+                    <h4>Real-time Emotions:</h4>
+                    <div id="emotionList">No emotion data yet...</div>
+                </div>
+                <button onclick="toggleEmotionAnalytics()" class="control-btn">📈 Analytics</button>
+                <button onclick="toggleAllMute()" class="control-btn" id="muteAllBtn">🔇 Mute All</button>
+            </div>
+            
+            <div class="controls">
+                <button class="control-btn active" id="videoBtn" onclick="toggleVideo()">📹 Video</button>
+                <button class="control-btn active" id="audioBtn" onclick="toggleAudio()">🎤 Audio</button>
+                <button class="control-btn" id="handBtn" onclick="raiseHand()">🖐️ Hand</button>
+                <button class="control-btn" onclick="toggleParticipants()">👥 Participants</button>
+                <button class="control-btn" onclick="toggleScreenShare()" id="shareBtn">📺 Share</button>
+                <button class="control-btn" onclick="leaveClassroom()">📞 Leave</button>
+            </div>
+            
+            <div class="video-container" id="videoContainer">
+                <!-- Local video will be added here -->
+                <!-- Remote participant videos will be dynamically added -->
+            </div>
+            
+            <div class="participants-panel" id="participantsPanel" style="display: none;">
+                <h3>Participants (<span id="participantCount">0</span>)</h3>
+                <div id="participantsList"></div>
+            </div>
+            
+            <div class="chat-container">
+                <div id="chatMessages"></div>
+                <div class="chat-input">
+                    <input type="text" id="chatInput" placeholder="Type a message..." onkeypress="handleChatKeypress(event)">
+                    <button onclick="sendChatMessage()">Send</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let websocket = null;
+        let localStream = null;
+        let userId = null;
+        let roomId = null;
+        let isVideoEnabled = true;
+        let isAudioEnabled = true;
+        let isHandRaised = false;
+        let isHost = false;
+        let participants = new Map(); // Store participant data
+        let remoteStreams = new Map(); // Store remote video streams
+        let peerConnections = new Map(); // Store WebRTC peer connections
+        
+        // Emotion detection simulation (would integrate with ML modules)
+        const emotions = ['engaged', 'confused', 'bored', 'neutral', 'curious', 'frustrated', 'happy'];
+        const emotionIcons = {
+            'engaged': '😊',
+            'confused': '😕', 
+            'bored': '😴',
+            'neutral': '😐',
+            'curious': '🤔',
+            'frustrated': '😤',
+            'happy': '😄'
+        };
+
+        // Join classroom function
+        async function joinClassroom() {
+            const username = document.getElementById('username').value.trim();
+            const role = document.getElementById('role').value;
+            const roomIdInput = document.getElementById('roomId').value.trim();
+            
+            if (!username) {
+                showStatus('Please enter your name', 'error');
+                return;
+            }
+            
+            try {
+                showStatus('Connecting...', 'success');
+                
+                // Register user
+                console.log('Registering user:', username, role);
+                const apiBaseUrl = `${window.location.protocol}//${window.location.host}`;
+                const response = await fetch(`${apiBaseUrl}/api/auth/register`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        username: username,
+                        email: `${username.toLowerCase().replace(' ', '.')}@demo.com`,
+                        role: role
+                    })
+                });
+                
+                const userData = await response.json();
+                console.log('Registration response:', userData);
+                
+                if (!response.ok) {
+                    console.error('Registration failed:', userData);
+                    throw new Error(userData.message || 'Registration failed');
+                }
+                
+                userId = userData.user_id;
+                isHost = role === 'instructor';
+                console.log('User registered:', userId, 'isHost:', isHost);
+                
+                // Create or join room
+                if (!roomIdInput) {
+                    if (role === 'instructor') {
+                        console.log('Creating room for instructor:', userId);
+                        const roomResponse = await fetch(`${apiBaseUrl}/api/classroom/create-room`, {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({
+                                host_user_id: userId,
+                                room_name: `${username}'s Classroom`
+                            })
+                        });
+                        
+                        const roomData = await roomResponse.json();
+                        console.log('Room creation response:', roomData);
+                        
+                        if (!roomResponse.ok) {
+                            console.error('Room creation failed:', roomData);
+                            throw new Error(roomData.detail || 'Failed to create room');
+                        }
+                        
+                        roomId = roomData.room_id;
+                        console.log('Room created:', roomId);
+                    } else {
+                        showStatus('Students must provide a Room ID to join', 'error');
+                        return;
+                    }
+                } else {
+                    roomId = roomIdInput;
+                    console.log('Joining existing room:', roomId);
+                }
+                
+                // Try to get user media (optional for demo)
+                try {
+                    showStatus('Requesting camera/microphone access...', 'success');
+                    localStream = await navigator.mediaDevices.getUserMedia({
+                        video: { width: 640, height: 480, facingMode: 'user' },
+                        audio: { echoCancellation: true, noiseSuppression: true }
+                    });
+                    console.log('Media access granted');
+                } catch (mediaError) {
+                    console.warn('Media access denied or not available:', mediaError);
+                    showStatus('Camera/microphone not available - joining in audio-only mode', 'success');
+                    
+                    // Try audio only
+                    try {
+                        localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                        isVideoEnabled = false;
+                        console.log('Audio-only access granted');
+                    } catch (audioError) {
+                        console.warn('Audio access also denied:', audioError);
+                        showStatus('Joining without media - chat only mode', 'success');
+                        localStream = null;
+                        isVideoEnabled = false;
+                        isAudioEnabled = false;
+                    }
+                }
+                
+                // Add local video to container
+                addLocalVideo(username, role);
+                
+                // Start emotion detection simulation
+                startEmotionDetection();
+                
+                // Connect to WebSocket
+                connectWebSocket(username, role);
+                
+            } catch (error) {
+                console.error('Error joining classroom:', error);
+                showStatus('Failed to join classroom: ' + error.message, 'error');
+            }
+        }
+        
+        function addLocalVideo(username, role) {
+            const videoContainer = document.getElementById('videoContainer');
+            const videoBox = document.createElement('div');
+            videoBox.className = `video-box ${role === 'instructor' ? 'host' : ''}`;
+            videoBox.id = `video-${userId}`;
+            
+            // Generate avatar letter from username
+            const avatarLetter = username.charAt(0).toUpperCase();
+            
+            videoBox.innerHTML = `
+                <video id="localVideo" autoplay muted style="${!localStream || !isVideoEnabled ? 'display: none;' : ''}"></video>
+                <div class="avatar" id="avatar-${userId}" style="${localStream && isVideoEnabled ? 'display: none;' : 'display: flex;'}">${avatarLetter}</div>
+                <div class="participant-info">
+                    <span>${isVideoEnabled ? '🎥' : '🚫'}</span> ${username} (You)
+                </div>
+                <div class="role-badge ${role}">${role}</div>
+                <div class="emotion-indicator emotion-neutral" id="emotion-${userId}">
+                    ${emotionIcons['neutral']}
+                </div>
+                <div class="video-controls">
+                    <div class="mini-control ${isVideoEnabled ? 'active' : 'muted'}" id="local-video-indicator">
+                        📹
+                    </div>
+                    <div class="mini-control ${isAudioEnabled ? 'active' : 'muted'}" id="local-audio-indicator">
+                        🎤
+                    </div>
+                </div>
+            `;
+            
+            videoContainer.appendChild(videoBox);
+            
+            // Only set video source if we have a stream
+            if (localStream) {
+                document.getElementById('localVideo').srcObject = localStream;
+            }
+        }
+        
+        function addRemoteParticipant(participant) {
+            const videoContainer = document.getElementById('videoContainer');
+            const existingVideo = document.getElementById(`video-${participant.user_id}`);
+            
+            if (existingVideo) {
+                return; // Already exists
+            }
+            
+            const videoBox = document.createElement('div');
+            videoBox.className = `video-box ${participant.role === 'instructor' ? 'host' : ''}`;
+            videoBox.id = `video-${participant.user_id}`;
+            
+            // Generate avatar letter from username
+            const avatarLetter = participant.username.charAt(0).toUpperCase();
+            
+            videoBox.innerHTML = `
+                <div class="avatar" id="avatar-${participant.user_id}">${avatarLetter}</div>
+                <video id="remoteVideo-${participant.user_id}" autoplay style="display: none;"></video>
+                <div class="participant-info">
+                    <span>${participant.video_enabled ? '🎥' : '🚫'}</span> ${participant.username}
+                </div>
+                <div class="role-badge ${participant.role}">${participant.role}</div>
+                <div class="emotion-indicator emotion-neutral" id="emotion-${participant.user_id}">
+                    ${emotionIcons['neutral']}
+                </div>
+                <div class="video-controls">
+                    <div class="mini-control ${participant.video_enabled ? 'active' : 'muted'}">
+                        📹
+                    </div>
+                    <div class="mini-control ${participant.audio_enabled ? 'active' : 'muted'}">
+                        🎤
+                    </div>
+                </div>
+            `;
+            
+            videoContainer.appendChild(videoBox);
+            
+            // Store participant data with emotion tracking
+            participants.set(participant.user_id, {
+                ...participant,
+                current_emotion: 'neutral',
+                emotion_confidence: 0.0
+            });
+            
+            // Start simulated emotion detection for this participant
+            simulateParticipantEmotion(participant.user_id);
+        }
+        
+        function removeParticipant(userId) {
+            const videoElement = document.getElementById(`video-${userId}`);
+            if (videoElement) {
+                videoElement.remove();
+            }
+            participants.delete(userId);
+            
+            if (remoteStreams.has(userId)) {
+                remoteStreams.get(userId).getTracks().forEach(track => track.stop());
+                remoteStreams.delete(userId);
+            }
+            
+            if (peerConnections.has(userId)) {
+                peerConnections.get(userId).close();
+                peerConnections.delete(userId);
+            }
+        }
+        
+        function startEmotionDetection() {
+            // Simulate emotion detection for local user
+            setInterval(() => {
+                const randomEmotion = emotions[Math.floor(Math.random() * emotions.length)];
+                updateEmotionDisplay(userId, randomEmotion);
+                
+                // Send emotion data to server (for admin dashboard)
+                if (websocket) {
+                    websocket.send(JSON.stringify({
+                        type: 'emotion_update',
+                        emotion: randomEmotion,
+                        confidence: Math.random() * 0.3 + 0.7, // 0.7-1.0
+                        timestamp: new Date().toISOString()
+                    }));
+                }
+            }, 3000); // Update every 3 seconds
+        }
+        
+        function simulateParticipantEmotion(participantId) {
+            setInterval(() => {
+                const randomEmotion = emotions[Math.floor(Math.random() * emotions.length)];
+                updateEmotionDisplay(participantId, randomEmotion);
+            }, 4000 + Math.random() * 2000); // Vary timing
+        }
+        
+        function updateEmotionDisplay(participantId, emotion) {
+            const emotionElement = document.getElementById(`emotion-${participantId}`);
+            if (emotionElement) {
+                emotionElement.className = `emotion-indicator emotion-${emotion}`;
+                emotionElement.textContent = emotionIcons[emotion] || '😐';
+                emotionElement.title = `Current emotion: ${emotion}`;
+            }
+            
+            // Update participant data
+            const participant = participants.get(participantId);
+            if (participant) {
+                participant.current_emotion = emotion;
+                participants.set(participantId, participant);
+            }
+            
+            // Update admin analytics if user is instructor
+            if (isHost) {
+                updateEmotionAnalytics();
+            }
+        }
+        
+        function connectWebSocket(username, role) {
+            const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${wsProtocol}//${window.location.host}/ws/classroom/${roomId}`;
+            websocket = new WebSocket(wsUrl);
+            
+            websocket.onopen = () => {
+                // Send authentication
+                websocket.send(JSON.stringify({
+                    user_id: userId,
+                    username: username,
+                    role: role
+                }));
+            };
+            
+            websocket.onmessage = (event) => {
+                const message = JSON.parse(event.data);
+                handleWebSocketMessage(message);
+            };
+            
+            websocket.onclose = () => {
+                showStatus('Disconnected from classroom', 'error');
+            };
+            
+            websocket.onerror = (error) => {
+                console.error('WebSocket error:', error);
+                showStatus('Connection error', 'error');
+            };
+        }
+        
+        function handleWebSocketMessage(message) {
+            switch (message.type) {
+                case 'room_joined':
+                    showClassroomInterface();
+                    const shortRoomId = roomId.length > 8 ? roomId.substring(0, 8) : roomId;
+                    document.getElementById('roomTitle').textContent = `Room: ${shortRoomId} ${isHost ? '(Host)' : ''}`;
+                    showStatus(`Joined classroom! Room ID: ${shortRoomId} - Participants: ${message.participants.length}`, 'success');
+                    
+                    // Show room sharing info for hosts
+                    if (isHost) {
+                        addChatMessage('System', `🎤 You are the host! Share this Room ID with students: ${shortRoomId}`);
+                        addChatMessage('System', `💡 Students can join by entering: ${shortRoomId}`);
+                    } else {
+                        addChatMessage('System', `👋 Welcome to the classroom! Room ID: ${shortRoomId}`);
+                    }
+                    
+                    // Add existing participants
+                    message.participants.forEach(participant => {
+                        if (participant.user_id !== userId) {
+                            addRemoteParticipant(participant);
+                        }
+                    });
+                    
+                    updateParticipantCount(message.participants.length);
+                    break;
+                    
+                case 'participant_joined':
+                    if (message.user_id !== userId) {
+                        addRemoteParticipant({
+                            user_id: message.user_id,
+                            username: message.username,
+                            role: message.role,
+                            video_enabled: true,
+                            audio_enabled: true,
+                            hand_raised: false
+                        });
+                    }
+                    addChatMessage('System', `${message.username} joined the classroom`);
+                    updateParticipantCount(message.participant_count);
+                    break;
+                    
+                case 'participant_left':
+                    removeParticipant(message.user_id);
+                    addChatMessage('System', `User left the classroom`);
+                    updateParticipantCount(message.participant_count);
+                    break;
+                    
+                case 'participant_video_toggle':
+                    updateParticipantVideoStatus(message.user_id, message.video_enabled);
+                    break;
+                    
+                case 'participant_audio_toggle':
+                    updateParticipantAudioStatus(message.user_id, message.audio_enabled);
+                    break;
+                    
+                case 'chat_message':
+                    addChatMessage(message.username, message.message);
+                    break;
+                    
+                case 'hand_raised':
+                    updateHandRaisedStatus(message.user_id, message.hand_raised);
+                    addChatMessage('System', `${message.username} ${message.hand_raised ? 'raised' : 'lowered'} their hand`);
+                    break;
+                    
+                case 'emotion_update':
+                    if (isHost) {
+                        // Only show emotion updates to host/admin
+                        updateEmotionDisplay(message.user_id, message.emotion);
+                        showEmotionAlert(message.username, message.emotion, message.confidence);
+                    }
+                    break;
+                    
+                case 'room_closed':
+                    showStatus('Room was closed by the host', 'error');
+                    leaveClassroom();
+                    break;
+                    
+                case 'webrtc_signal':
+                    handleWebRTCSignal(message);
+                    break;
+                    
+                case 'error':
+                    showStatus(message.message, 'error');
+                    break;
+            }
+        }
+        
+        function updateParticipantCount(count) {
+            const countElement = document.getElementById('participantCount');
+            if (countElement) {
+                countElement.textContent = count;
+            }
+        }
+        
+        function updateParticipantVideoStatus(userId, enabled) {
+            const participant = participants.get(userId);
+            if (participant) {
+                participant.video_enabled = enabled;
+                const videoElement = document.getElementById(`remoteVideo-${userId}`);
+                const avatarElement = document.getElementById(`avatar-${userId}`);
+                
+                if (videoElement && avatarElement) {
+                    if (enabled) {
+                        videoElement.style.display = 'block';
+                        avatarElement.style.display = 'none';
+                    } else {
+                        videoElement.style.display = 'none';
+                        avatarElement.style.display = 'flex';
+                    }
+                }
+            }
+        }
+        
+        function updateParticipantAudioStatus(userId, enabled) {
+            const participant = participants.get(userId);
+            if (participant) {
+                participant.audio_enabled = enabled;
+                // Update visual indicator
+                const videoBox = document.getElementById(`video-${userId}`);
+                if (videoBox) {
+                    const audioControl = videoBox.querySelector('.video-controls .mini-control:last-child');
+                    if (audioControl) {
+                        audioControl.className = `mini-control ${enabled ? 'active' : 'muted'}`;
+                    }
+                }
+            }
+        }
+        
+        function updateHandRaisedStatus(userId, raised) {
+            const participant = participants.get(userId);
+            if (participant) {
+                participant.hand_raised = raised;
+                const videoBox = document.getElementById(`video-${userId}`);
+                if (videoBox) {
+                    if (raised) {
+                        videoBox.classList.add('speaking');
+                    } else {
+                        videoBox.classList.remove('speaking');
+                    }
+                }
+            }
+        }
+        
+        function showEmotionAlert(username, emotion, confidence) {
+            if (emotion === 'confused' || emotion === 'frustrated' || emotion === 'bored') {
+                const alertDiv = document.createElement('div');
+                alertDiv.className = 'emotion-alert';
+                alertDiv.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    right: 20px;
+                    background: rgba(244, 67, 54, 0.9);
+                    color: white;
+                    padding: 10px 15px;
+                    border-radius: 8px;
+                    z-index: 1000;
+                    animation: slideIn 0.3s ease;
+                `;
+                alertDiv.innerHTML = `
+                    <strong>⚠️ Attention:</strong><br>
+                    ${username} seems ${emotion} (${(confidence * 100).toFixed(0)}%)
+                `;
+                
+                document.body.appendChild(alertDiv);
+                
+                setTimeout(() => {
+                    alertDiv.remove();
+                }, 4000);
+            }
+        }
+        
+        function handleWebRTCSignal(message) {
+            // Simplified WebRTC signaling
+            console.log('WebRTC signal received:', message);
+        }
+        
+        function showClassroomInterface() {
+            document.getElementById('joinForm').style.display = 'none';
+            document.getElementById('classroomInterface').style.display = 'block';
+            
+            // Show admin controls if user is instructor
+            if (isHost) {
+                document.getElementById('adminControls').classList.remove('hidden');
+                startEmotionAnalytics();
+            }
+        }
+        
+        function startEmotionAnalytics() {
+            // Update emotion analytics every 5 seconds for instructors
+            if (isHost) {
+                setInterval(updateEmotionAnalytics, 5000);
+            }
+        }
+        
+        function updateEmotionAnalytics() {
+            const emotionList = document.getElementById('emotionList');
+            if (!emotionList) return;
+            
+            let html = '';
+            participants.forEach((participant, userId) => {
+                if (userId !== userId) {
+                    const emotion = participant.current_emotion || 'neutral';
+                    const username = participant.username || 'Unknown';
+                    html += `
+                        <div class="emotion-item">
+                            <span>${username}:</span>
+                            <span>${emotionIcons[emotion] || '😐'} ${emotion}</span>
+                        </div>
+                    `;
+                }
+            });
+            
+            if (html === '') {
+                html = 'No participants yet...';
+            }
+            
+            emotionList.innerHTML = html;
+        }
+        
+        function toggleEmotionAnalytics() {
+            // Request detailed analytics from server
+            if (websocket && isHost) {
+                websocket.send(JSON.stringify({
+                    type: 'request_emotion_summary'
+                }));
+            }
+        }
+        
+        function toggleAllMute() {
+            const muteBtn = document.getElementById('muteAllBtn');
+            const isMuting = muteBtn.textContent.includes('Mute');
+            
+            if (websocket && isHost) {
+                websocket.send(JSON.stringify({
+                    type: 'admin_action',
+                    action: isMuting ? 'mute_all' : 'unmute_all'
+                }));
+            }
+            
+            muteBtn.innerHTML = isMuting ? '🔊 Unmute All' : '🔇 Mute All';
+            addChatMessage('System', `Host ${isMuting ? 'muted' : 'unmuted'} all participants`);
+        }
+        
+        function toggleParticipants() {
+            const panel = document.getElementById('participantsPanel');
+            panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+        }
+        
+        function toggleScreenShare() {
+            // Screen sharing functionality (simplified)
+            const shareBtn = document.getElementById('shareBtn');
+            if (shareBtn.textContent.includes('Share')) {
+                shareBtn.innerHTML = '🚫 Stop Share';
+                addChatMessage('System', 'Screen sharing started');
+            } else {
+                shareBtn.innerHTML = '📺 Share';
+                addChatMessage('System', 'Screen sharing stopped');
+            }
+        }
+        
+        function toggleVideo() {
+            isVideoEnabled = !isVideoEnabled;
+            const videoBtn = document.getElementById('videoBtn');
+            const localVideo = document.getElementById('localVideo');
+            const localIndicator = document.getElementById('local-video-indicator');
+            
+            if (localStream) {
+                localStream.getVideoTracks().forEach(track => {
+                    track.enabled = isVideoEnabled;
+                });
+            }
+            
+            // Update UI
+            videoBtn.classList.toggle('active', isVideoEnabled);
+            videoBtn.classList.toggle('muted', !isVideoEnabled);
+            videoBtn.innerHTML = isVideoEnabled ? '📹 Video' : '🚫 Video';
+            
+            if (localIndicator) {
+                localIndicator.className = `mini-control ${isVideoEnabled ? 'active' : 'muted'}`;
+            }
+            
+            // Show/hide local video
+            if (localVideo) {
+                localVideo.style.display = isVideoEnabled ? 'block' : 'none';
+            }
+            
+            const avatar = document.getElementById(`avatar-${userId}`);
+            if (avatar) {
+                avatar.style.display = isVideoEnabled ? 'none' : 'flex';
+            }
+            
+            if (websocket) {
+                websocket.send(JSON.stringify({
+                    type: 'video_toggle',
+                    enabled: isVideoEnabled
+                }));
+            }
+        }
+        
+        function toggleAudio() {
+            isAudioEnabled = !isAudioEnabled;
+            const audioBtn = document.getElementById('audioBtn');
+            const localIndicator = document.getElementById('local-audio-indicator');
+            
+            if (localStream) {
+                localStream.getAudioTracks().forEach(track => {
+                    track.enabled = isAudioEnabled;
+                });
+            }
+            
+            // Update UI
+            audioBtn.classList.toggle('active', isAudioEnabled);
+            audioBtn.classList.toggle('muted', !isAudioEnabled);
+            audioBtn.innerHTML = isAudioEnabled ? '🎤 Audio' : '🔇 Muted';
+            
+            if (localIndicator) {
+                localIndicator.className = `mini-control ${isAudioEnabled ? 'active' : 'muted'}`;
+            }
+            
+            if (websocket) {
+                websocket.send(JSON.stringify({
+                    type: 'audio_toggle',
+                    enabled: isAudioEnabled
+                }));
+            }
+        }
+        
+        function raiseHand() {
+            isHandRaised = !isHandRaised;
+            const handBtn = document.getElementById('handBtn');
+            const localVideoBox = document.getElementById(`video-${userId}`);
+            
+            handBtn.classList.toggle('active', isHandRaised);
+            handBtn.innerHTML = isHandRaised ? '✋ Raised' : '🖐️ Hand';
+            
+            if (localVideoBox) {
+                if (isHandRaised) {
+                    localVideoBox.classList.add('speaking');
+                } else {
+                    localVideoBox.classList.remove('speaking');
+                }
+            }
+            
+            if (websocket) {
+                websocket.send(JSON.stringify({
+                    type: 'raise_hand',
+                    raised: isHandRaised
+                }));
+            }
+        }
+        
+        function sendChatMessage() {
+            const chatInput = document.getElementById('chatInput');
+            const message = chatInput.value.trim();
+            
+            if (message && websocket) {
+                websocket.send(JSON.stringify({
+                    type: 'chat_message',
+                    message: message
+                }));
+                chatInput.value = '';
+            }
+        }
+        
+        function handleChatKeypress(event) {
+            if (event.key === 'Enter') {
+                sendChatMessage();
+            }
+        }
+        
+        function addChatMessage(username, message) {
+            const chatMessages = document.getElementById('chatMessages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'chat-message';
+            messageDiv.innerHTML = `<strong>${username}:</strong> ${message}`;
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+        
+        function leaveClassroom() {
+            if (websocket) {
+                websocket.close();
+            }
+            
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+            }
+            
+            // Reset interface
+            document.getElementById('joinForm').style.display = 'block';
+            document.getElementById('classroomInterface').style.display = 'none';
+            showStatus('Left classroom', 'success');
+        }
+        
+        function showStatus(message, type) {
+            const statusDiv = document.getElementById('status');
+            statusDiv.textContent = message;
+            statusDiv.className = `status ${type}`;
+            statusDiv.style.display = 'block';
+            
+            setTimeout(() => {
+                statusDiv.style.display = 'none';
+            }, 5000);
+        }
+    </script>
+</body>
+</html>

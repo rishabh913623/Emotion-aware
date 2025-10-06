@@ -1,0 +1,37 @@
+# Data directories
+data/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# IDE
+.vscode/
+.idea/
+
+# Node modules
+node_modules/
+
+# Temporary files
+*.tmp
+*.swp
+
+# Keys
+*.key
+
+# Zips
+*.zip

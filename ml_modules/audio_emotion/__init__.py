@@ -1,0 +1,1 @@
+"""Audio emotion recognition module"""
