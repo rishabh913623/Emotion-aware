@@ -558,15 +558,26 @@
     <script>
         let websocket = null;
         let localStream = null;
+        let screenStream = null;
         let userId = null;
         let roomId = null;
         let isVideoEnabled = true;
         let isAudioEnabled = true;
         let isHandRaised = false;
         let isHost = false;
+        let isSharingScreen = false;
         let participants = new Map(); // Store participant data
         let remoteStreams = new Map(); // Store remote video streams
         let peerConnections = new Map(); // Store WebRTC peer connections
+        
+        // WebRTC configuration with public STUN servers
+        const rtcConfiguration = {
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' },
+                { urls: 'stun:stun2.l.google.com:19302' }
+            ]
+        };
         
         // Emotion detection simulation (would integrate with ML modules)
         const emotions = ['engaged', 'confused', 'bored', 'neutral', 'curious', 'frustrated', 'happy'];
@@ -774,6 +785,9 @@
                 emotion_confidence: 0.0
             });
             
+            // Create WebRTC peer connection for this participant
+            createPeerConnection(participant.user_id, true);
+            
             // Start simulated emotion detection for this participant
             simulateParticipantEmotion(participant.user_id);
         }
@@ -793,6 +807,143 @@
             if (peerConnections.has(userId)) {
                 peerConnections.get(userId).close();
                 peerConnections.delete(userId);
+            }
+        }
+        
+        // ===== WebRTC Functions =====
+        
+        async function createPeerConnection(remoteUserId, isInitiator) {
+            console.log(`Creating peer connection for ${remoteUserId}, isInitiator: ${isInitiator}`);
+            
+            const peerConnection = new RTCPeerConnection(rtcConfiguration);
+            peerConnections.set(remoteUserId, peerConnection);
+            
+            // Add local stream tracks to the peer connection
+            if (localStream) {
+                localStream.getTracks().forEach(track => {
+                    peerConnection.addTrack(track, localStream);
+                    console.log(`Added local ${track.kind} track to peer connection`);
+                });
+            }
+            
+            // Handle incoming remote stream
+            peerConnection.ontrack = (event) => {
+                console.log(`Received remote ${event.track.kind} track from ${remoteUserId}`);
+                const remoteStream = event.streams[0];
+                
+                if (event.track.kind === 'video') {
+                    const remoteVideo = document.getElementById(`remoteVideo-${remoteUserId}`);
+                    const avatar = document.getElementById(`avatar-${remoteUserId}`);
+                    
+                    if (remoteVideo) {
+                        remoteVideo.srcObject = remoteStream;
+                        remoteVideo.style.display = 'block';
+                        if (avatar) avatar.style.display = 'none';
+                    }
+                } else if (event.track.kind === 'audio') {
+                    const remoteAudio = document.getElementById(`remoteAudio-${remoteUserId}`);
+                    if (remoteAudio) {
+                        remoteAudio.srcObject = remoteStream;
+                    }
+                }
+                
+                remoteStreams.set(remoteUserId, remoteStream);
+            };
+            
+            // Handle ICE candidates
+            peerConnection.onicecandidate = (event) => {
+                if (event.candidate) {
+                    console.log(`Sending ICE candidate to ${remoteUserId}`);
+                    if (websocket && websocket.readyState === WebSocket.OPEN) {
+                        websocket.send(JSON.stringify({
+                            type: 'webrtc_ice_candidate',
+                            target_user_id: remoteUserId,
+                            candidate: event.candidate
+                        }));
+                    }
+                }
+            };
+            
+            // Handle connection state changes
+            peerConnection.onconnectionstatechange = () => {
+                console.log(`Peer connection with ${remoteUserId}: ${peerConnection.connectionState}`);
+                if (peerConnection.connectionState === 'failed') {
+                    console.error(`Connection failed with ${remoteUserId}, restarting...`);
+                    peerConnection.restartIce();
+                }
+            };
+            
+            // If we're the initiator, create and send an offer
+            if (isInitiator) {
+                try {
+                    const offer = await peerConnection.createOffer({
+                        offerToReceiveAudio: true,
+                        offerToReceiveVideo: true
+                    });
+                    await peerConnection.setLocalDescription(offer);
+                    
+                    console.log(`Sending offer to ${remoteUserId}`);
+                    if (websocket && websocket.readyState === WebSocket.OPEN) {
+                        websocket.send(JSON.stringify({
+                            type: 'webrtc_offer',
+                            target_user_id: remoteUserId,
+                            offer: offer
+                        }));
+                    }
+                } catch (error) {
+                    console.error('Error creating offer:', error);
+                }
+            }
+        }
+        
+        async function handleWebRTCSignal(message) {
+            console.log('Received WebRTC signal:', message.signal_type, 'from', message.from_user_id);
+            
+            const remoteUserId = message.from_user_id;
+            let peerConnection = peerConnections.get(remoteUserId);
+            
+            try {
+                switch (message.signal_type) {
+                    case 'offer':
+                        // Create peer connection if it doesn't exist
+                        if (!peerConnection) {
+                            await createPeerConnection(remoteUserId, false);
+                            peerConnection = peerConnections.get(remoteUserId);
+                        }
+                        
+                        // Set remote description (offer)
+                        await peerConnection.setRemoteDescription(new RTCSessionDescription(message.offer));
+                        
+                        // Create and send answer
+                        const answer = await peerConnection.createAnswer();
+                        await peerConnection.setLocalDescription(answer);
+                        
+                        console.log(`Sending answer to ${remoteUserId}`);
+                        if (websocket && websocket.readyState === WebSocket.OPEN) {
+                            websocket.send(JSON.stringify({
+                                type: 'webrtc_answer',
+                                target_user_id: remoteUserId,
+                                answer: answer
+                            }));
+                        }
+                        break;
+                        
+                    case 'answer':
+                        if (peerConnection) {
+                            await peerConnection.setRemoteDescription(new RTCSessionDescription(message.answer));
+                            console.log(`Set remote description (answer) from ${remoteUserId}`);
+                        }
+                        break;
+                        
+                    case 'ice_candidate':
+                        if (peerConnection && message.candidate) {
+                            await peerConnection.addIceCandidate(new RTCIceCandidate(message.candidate));
+                            console.log(`Added ICE candidate from ${remoteUserId}`);
+                        }
+                        break;
+                }
+            } catch (error) {
+                console.error('Error handling WebRTC signal:', error);
             }
         }
         
@@ -1288,7 +1439,7 @@
         async function toggleScreenShare() {
             const shareBtn = document.getElementById('shareBtn');
             
-            if (!isScreenSharing) {
+            if (!isSharingScreen) {
                 try {
                     // Request screen sharing permission
                     screenStream = await navigator.mediaDevices.getDisplayMedia({
@@ -1299,25 +1450,29 @@
                         audio: false
                     });
                     
-                    // Create screen share video element
+                    // Create screen share video element for local preview
                     const screenVideoContainer = document.createElement('div');
                     screenVideoContainer.id = 'screenShareContainer';
                     screenVideoContainer.className = 'video-tile screen-share-tile';
-                    screenVideoContainer.style.cssText = 'grid-column: span 2; height: 400px;';
+                    screenVideoContainer.style.cssText = 'grid-column: span 2; height: 400px; border: 3px solid #4CAF50;';
                     
                     const screenVideo = document.createElement('video');
                     screenVideo.id = 'screenShareVideo';
                     screenVideo.autoplay = true;
                     screenVideo.playsInline = true;
+                    screenVideo.muted = true; // Mute local preview
                     screenVideo.srcObject = screenStream;
                     screenVideo.style.width = '100%';
                     screenVideo.style.height = '100%';
                     screenVideo.style.objectFit = 'contain';
+                    screenVideo.style.background = '#000';
                     
                     const screenLabel = document.createElement('div');
                     screenLabel.className = 'video-label';
-                    screenLabel.textContent = `📺 ${currentUsername} is sharing screen`;
+                    screenLabel.textContent = '📺 You are sharing your screen';
                     screenLabel.style.background = 'rgba(76, 175, 80, 0.9)';
+                    screenLabel.style.fontSize = '1.1rem';
+                    screenLabel.style.padding = '12px';
                     
                     screenVideoContainer.appendChild(screenVideo);
                     screenVideoContainer.appendChild(screenLabel);
@@ -1325,12 +1480,23 @@
                     const videoContainer = document.getElementById('videoContainer');
                     videoContainer.insertBefore(screenVideoContainer, videoContainer.firstChild);
                     
+                    // Add screen share track to all peer connections
+                    const screenTrack = screenStream.getVideoTracks()[0];
+                    peerConnections.forEach((peerConnection, remoteUserId) => {
+                        // Replace the video track with screen share track
+                        const sender = peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
+                        if (sender) {
+                            sender.replaceTrack(screenTrack);
+                            console.log(`Replaced video track with screen share for ${remoteUserId}`);
+                        }
+                    });
+                    
                     // Handle when screen sharing is stopped
-                    screenStream.getVideoTracks()[0].addEventListener('ended', () => {
+                    screenTrack.addEventListener('ended', () => {
                         stopScreenShare();
                     });
                     
-                    isScreenSharing = true;
+                    isSharingScreen = true;
                     shareBtn.innerHTML = '🚫 Stop Share';
                     shareBtn.classList.add('active');
                     
@@ -1356,6 +1522,19 @@
         function stopScreenShare() {
             if (screenStream) {
                 screenStream.getTracks().forEach(track => track.stop());
+                
+                // Restore camera video to peer connections
+                if (localStream && localStream.getVideoTracks().length > 0) {
+                    const cameraTrack = localStream.getVideoTracks()[0];
+                    peerConnections.forEach((peerConnection, remoteUserId) => {
+                        const sender = peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
+                        if (sender) {
+                            sender.replaceTrack(cameraTrack);
+                            console.log(`Restored camera track for ${remoteUserId}`);
+                        }
+                    });
+                }
+                
                 screenStream = null;
             }
             
@@ -1364,10 +1543,12 @@
                 screenContainer.remove();
             }
             
-            isScreenSharing = false;
+            isSharingScreen = false;
             const shareBtn = document.getElementById('shareBtn');
-            shareBtn.innerHTML = '📺 Share';
-            shareBtn.classList.remove('active');
+            if (shareBtn) {
+                shareBtn.innerHTML = '📺 Share';
+                shareBtn.classList.remove('active');
+            }
             
             // Notify other participants
             if (websocket) {

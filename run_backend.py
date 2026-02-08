@@ -649,8 +649,44 @@ async def handle_websocket_message(room: ClassroomRoom, user_id: str, message: d
             "timestamp": datetime.now().isoformat()
         }, exclude_user_id=user_id)
     
+    elif message_type == "webrtc_offer":
+        # Forward WebRTC offer to target user
+        target_user_id = message.get("target_user_id")
+        if target_user_id in room.participants:
+            await room.participants[target_user_id].websocket.send_text(json.dumps({
+                "type": "webrtc_signal",
+                "signal_type": "offer",
+                "from_user_id": user_id,
+                "offer": message.get("offer"),
+                "timestamp": datetime.now().isoformat()
+            }))
+    
+    elif message_type == "webrtc_answer":
+        # Forward WebRTC answer to target user
+        target_user_id = message.get("target_user_id")
+        if target_user_id in room.participants:
+            await room.participants[target_user_id].websocket.send_text(json.dumps({
+                "type": "webrtc_signal",
+                "signal_type": "answer",
+                "from_user_id": user_id,
+                "answer": message.get("answer"),
+                "timestamp": datetime.now().isoformat()
+            }))
+    
+    elif message_type == "webrtc_ice_candidate":
+        # Forward ICE candidate to target user
+        target_user_id = message.get("target_user_id")
+        if target_user_id in room.participants:
+            await room.participants[target_user_id].websocket.send_text(json.dumps({
+                "type": "webrtc_signal",
+                "signal_type": "ice_candidate",
+                "from_user_id": user_id,
+                "candidate": message.get("candidate"),
+                "timestamp": datetime.now().isoformat()
+            }))
+    
     elif message_type == "webrtc_signal":
-        # Forward WebRTC signaling data (for video/audio/screen sharing)
+        # Legacy WebRTC signaling (keep for backward compatibility)
         target_user_id = message.get("target_user_id")
         if target_user_id in room.participants:
             await room.participants[target_user_id].websocket.send_text(json.dumps({
