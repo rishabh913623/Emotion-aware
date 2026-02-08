@@ -1,24 +1,14 @@
 {
-  "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
-  ],
-  "headers": [
+  "redirects": [
+    {
+      "source": "/",
+      "destination": "https://emotion-aware-backend-xb6b.onrender.com/classroom",
+      "permanent": false
+    },
     {
       "source": "/(.*)",
-      "headers": [
-        {
-          "key": "X-Content-Type-Options",
-          "value": "nosniff"
-        },
-        {
-          "key": "X-Frame-Options",
-          "value": "DENY"
-        },
-        {
-          "key": "X-XSS-Protection",
-          "value": "1; mode=block"
-        }
-      ]
+      "destination": "https://emotion-aware-backend-xb6b.onrender.com/$1",
+      "permanent": false
     }
   ]
 }
