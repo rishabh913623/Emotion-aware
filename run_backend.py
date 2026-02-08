@@ -110,6 +110,12 @@ app.add_middleware(
 
 @app.get("/")
 async def root():
+    """Redirect to classroom interface"""
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url="/classroom")
+
+@app.get("/api")
+async def api_root():
     """API health check"""
     return {
         "message": "Emotion-Aware Virtual Classroom API",
