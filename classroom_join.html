@@ -790,7 +790,8 @@
         
         function startEmotionDetection() {
             // 🎯 ONLY STUDENTS' EMOTIONS ARE TRACKED - Instructors are excluded
-            if (currentRole === 'instructor') {
+            const role = document.getElementById('role').value;
+            if (role === 'instructor') {
                 console.log('Emotion detection disabled for instructors');
                 return; // Don't track instructor emotions
             }
