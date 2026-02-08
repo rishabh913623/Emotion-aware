@@ -313,18 +313,12 @@
             border-left: 3px solid #2196F3;
             color: #333;
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-            text-align: left;
-            direction: ltr;
-            unicode-bidi: normal;
-            word-break: break-word;
-            overflow-wrap: break-word;
         }
         
         .chat-message.system {
             background: rgba(76, 175, 80, 0.1);
             border-left-color: #4CAF50;
             font-style: italic;
-            text-align: center;
         }
         
         .chat-message strong {
@@ -332,7 +326,6 @@
             display: block;
             margin-bottom: 3px;
             font-size: 0.9rem;
-            text-align: left;
         }
         
         .chat-input {
@@ -746,8 +739,7 @@
             
             videoBox.innerHTML = `
                 <div class="avatar" id="avatar-${participant.user_id}">${avatarLetter}</div>
-                <video id="remoteVideo-${participant.user_id}" autoplay playsinline style="display: none;"></video>
-                <audio id="remoteAudio-${participant.user_id}" autoplay></audio>
+                <video id="remoteVideo-${participant.user_id}" autoplay style="display: none;"></video>
                 <div class="participant-info">
                     <span>${participant.video_enabled ? '🎥' : '🚫'}</span> ${participant.username}
                 </div>
@@ -1494,27 +1486,14 @@
             const chatMessages = document.getElementById('chatMessages');
             const messageDiv = document.createElement('div');
             messageDiv.className = 'chat-message';
-            messageDiv.setAttribute('dir', 'ltr');
             
             // Add special styling for system messages
             if (username === 'System') {
                 messageDiv.classList.add('system');
-                const textNode = document.createTextNode(`🔔 ${username}: ${message}`);
-                messageDiv.appendChild(textNode);
+                messageDiv.innerHTML = `<strong>🔔 ${username}:</strong> ${message}`;
             } else {
                 const timestamp = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-                const usernameEl = document.createElement('strong');
-                usernameEl.textContent = username;
-                const timeEl = document.createElement('span');
-                timeEl.style.cssText = 'color: #999; font-size: 0.8rem; margin-left: 8px;';
-                timeEl.textContent = timestamp;
-                const messageText = document.createElement('div');
-                messageText.textContent = message;
-                messageText.style.marginTop = '4px';
-                
-                messageDiv.appendChild(usernameEl);
-                messageDiv.appendChild(timeEl);
-                messageDiv.appendChild(messageText);
+                messageDiv.innerHTML = `<strong>${username}</strong> <span style="color: #999; font-size: 0.8rem;">${timestamp}</span><br>${message}`;
             }
             
             chatMessages.appendChild(messageDiv);
