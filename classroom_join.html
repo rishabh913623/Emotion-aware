@@ -288,25 +288,92 @@
         }
         
         .chat-container {
-            background: rgba(0, 0, 0, 0.2);
+            background: rgba(255, 255, 255, 0.95);
             border-radius: 10px;
             padding: 1rem;
             margin-top: 1rem;
-            max-height: 200px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+        
+        #chatMessages {
+            max-height: 250px;
             overflow-y: auto;
+            background: rgba(0, 0, 0, 0.05);
+            border-radius: 8px;
+            padding: 10px;
+            margin-bottom: 10px;
+            min-height: 150px;
         }
         
         .chat-message {
             margin-bottom: 0.5rem;
-            padding: 5px;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 5px;
+            padding: 8px 12px;
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 8px;
+            border-left: 3px solid #2196F3;
+            color: #333;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+        
+        .chat-message.system {
+            background: rgba(76, 175, 80, 0.1);
+            border-left-color: #4CAF50;
+            font-style: italic;
+        }
+        
+        .chat-message strong {
+            color: #1976d2;
+            display: block;
+            margin-bottom: 3px;
+            font-size: 0.9rem;
         }
         
         .chat-input {
             display: flex;
             gap: 10px;
-            margin-top: 1rem;
+            margin-top: 0.5rem;
+        }
+        
+        .chat-input input {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 1rem;
+            background: white;
+            color: #333;
+        }
+        
+        .chat-input input:focus {
+            outline: none;
+            border-color: #2196F3;
+        }
+        
+        .chat-input button {
+            padding: 12px 24px;
+            background: #2196F3;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        
+        .chat-input button:hover {
+            background: #1976d2;
+        }
+        
+        .chat-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 10px 15px;
+            border-radius: 8px 8px 0 0;
+            margin: -1rem -1rem 1rem -1rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
         
         .chat-input input {
@@ -445,6 +512,7 @@
                     <div id="emotionList">No emotion data yet...</div>
                 </div>
                 <button onclick="toggleEmotionAnalytics()" class="control-btn">📈 Analytics</button>
+                <button onclick="viewAttendance()" class="control-btn">📋 Attendance</button>
                 <button onclick="toggleAllMute()" class="control-btn" id="muteAllBtn">🔇 Mute All</button>
             </div>
             
@@ -468,10 +536,13 @@
             </div>
             
             <div class="chat-container">
+                <div class="chat-header">
+                    💬 Live Chat - All participants can chat here
+                </div>
                 <div id="chatMessages"></div>
                 <div class="chat-input">
-                    <input type="text" id="chatInput" placeholder="Type a message..." onkeypress="handleChatKeypress(event)">
-                    <button onclick="sendChatMessage()">Send</button>
+                    <input type="text" id="chatInput" placeholder="Type your message here..." onkeypress="handleChatKeypress(event)">
+                    <button onclick="sendChatMessage()">📤 Send</button>
                 </div>
             </div>
         </div>
@@ -718,12 +789,18 @@
         }
         
         function startEmotionDetection() {
-            // Simulate emotion detection for local user
+            // 🎯 ONLY STUDENTS' EMOTIONS ARE TRACKED - Instructors are excluded
+            if (currentRole === 'instructor') {
+                console.log('Emotion detection disabled for instructors');
+                return; // Don't track instructor emotions
+            }
+            
+            // Simulate emotion detection for students only
             setInterval(() => {
                 const randomEmotion = emotions[Math.floor(Math.random() * emotions.length)];
                 updateEmotionDisplay(userId, randomEmotion);
                 
-                // Send emotion data to server (for admin dashboard)
+                // Send emotion data to server (only for students - admin can see)
                 if (websocket) {
                     websocket.send(JSON.stringify({
                         type: 'emotion_update',
@@ -798,12 +875,20 @@
                     showClassroomInterface();
                     const shortRoomId = roomId.length > 8 ? roomId.substring(0, 8) : roomId;
                     document.getElementById('roomTitle').textContent = `Room: ${shortRoomId} ${isHost ? '(Host)' : ''}`;
-                    showStatus(`Joined classroom! Room ID: ${shortRoomId} - Participants: ${message.participants.length}`, 'success');
+                    
+                    // Show attendance confirmation
+                    if (message.attendance_recorded) {
+                        showStatus(`✅ Attendance Recorded! Joined classroom: ${shortRoomId}`, 'success');
+                        addChatMessage('System', `✅ Your attendance has been automatically recorded at ${new Date().toLocaleTimeString()}`);
+                    } else {
+                        showStatus(`Joined classroom! Room ID: ${shortRoomId} - Participants: ${message.participants.length}`, 'success');
+                    }
                     
                     // Show room sharing info for hosts
                     if (isHost) {
                         addChatMessage('System', `🎤 You are the host! Share this Room ID with students: ${shortRoomId}`);
                         addChatMessage('System', `💡 Students can join by entering: ${shortRoomId}`);
+                        addChatMessage('System', `📋 Attendance is being tracked automatically for all participants`);
                     } else {
                         addChatMessage('System', `👋 Welcome to the classroom! Room ID: ${shortRoomId}`);
                     }
@@ -858,10 +943,20 @@
                     
                 case 'emotion_update':
                     if (isHost) {
-                        // Only show emotion updates to host/admin
+                        // Only show emotion updates to host/admin (students don't see emotions)
                         updateEmotionDisplay(message.user_id, message.emotion);
                         showEmotionAlert(message.username, message.emotion, message.confidence);
                     }
+                    break;
+                
+                case 'screen_share_started':
+                    handleRemoteScreenShare(message.user_id, message.username, true);
+                    addChatMessage('System', `📺 ${message.username} started screen sharing`);
+                    break;
+                
+                case 'screen_share_stopped':
+                    handleRemoteScreenShare(message.user_id, message.username, false);
+                    addChatMessage('System', `📺 ${message.username} stopped screen sharing`);
                     break;
                     
                 case 'room_closed':
@@ -968,6 +1063,42 @@
             console.log('WebRTC signal received:', message);
         }
         
+        function handleRemoteScreenShare(userId, username, isStarting) {
+            const remoteScreenId = `remote-screen-${userId}`;
+            
+            if (isStarting) {
+                // Create container for remote screen share
+                const screenVideoContainer = document.createElement('div');
+                screenVideoContainer.id = remoteScreenId;
+                screenVideoContainer.className = 'video-tile screen-share-tile';
+                screenVideoContainer.style.cssText = 'grid-column: span 2; height: 400px; border: 3px solid #4CAF50;';
+                
+                const screenLabel = document.createElement('div');
+                screenLabel.className = 'video-label';
+                screenLabel.textContent = `📺 ${username} is sharing screen`;
+                screenLabel.style.background = 'rgba(76, 175, 80, 0.9)';
+                screenLabel.style.fontSize = '1.2rem';
+                screenLabel.style.padding = '15px';
+                
+                const placeholder = document.createElement('div');
+                placeholder.style.cssText = 'width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: #000; color: white; font-size: 2rem;';
+                placeholder.innerHTML = '📺<br>Screen Share Active';
+                
+                screenVideoContainer.appendChild(placeholder);
+                screenVideoContainer.appendChild(screenLabel);
+                
+                const videoContainer = document.getElementById('videoContainer');
+                videoContainer.insertBefore(screenVideoContainer, videoContainer.firstChild);
+                
+            } else {
+                // Remove screen share container
+                const screenContainer = document.getElementById(remoteScreenId);
+                if (screenContainer) {
+                    screenContainer.remove();
+                }
+            }
+        }
+        
         function showClassroomInterface() {
             document.getElementById('joinForm').style.display = 'none';
             document.getElementById('classroomInterface').style.display = 'block';
@@ -1020,6 +1151,108 @@
             }
         }
         
+        async function viewAttendance() {
+            if (!isHost) {
+                addChatMessage('System', '⚠️ Only instructors can view attendance');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`http://localhost:8001/api/attendance/room/${roomId}`);
+                const data = await response.json();
+                
+                // Create attendance display
+                let attendanceHTML = `
+                    <div style="background: rgba(255,255,255,0.95); color: #333; padding: 20px; border-radius: 10px; margin: 10px 0; max-height: 400px; overflow-y: auto;">
+                        <h3 style="margin-top: 0;">📋 Attendance Report</h3>
+                        <p><strong>Room ID:</strong> ${roomId.substring(0, 8)}</p>
+                        <p><strong>Total Attendees:</strong> ${data.statistics.total_attendees}</p>
+                        <p><strong>Students Present:</strong> ${data.statistics.students_present}</p>
+                        <p><strong>Instructors Present:</strong> ${data.statistics.instructors_present}</p>
+                        <hr>
+                        <h4>Attendance Records:</h4>
+                        <table style="width: 100%; border-collapse: collapse;">
+                            <thead>
+                                <tr style="background: #f0f0f0;">
+                                    <th style="padding: 8px; text-align: left; border: 1px solid #ddd;">Name</th>
+                                    <th style="padding: 8px; text-align: left; border: 1px solid #ddd;">Role</th>
+                                    <th style="padding: 8px; text-align: left; border: 1px solid #ddd;">Joined At</th>
+                                    <th style="padding: 8px; text-align: left; border: 1px solid #ddd;">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                `;
+                
+                data.attendance_records.forEach(record => {
+                    const joinTime = new Date(record.joined_at).toLocaleTimeString();
+                    attendanceHTML += `
+                        <tr>
+                            <td style="padding: 8px; border: 1px solid #ddd;">${record.username}</td>
+                            <td style="padding: 8px; border: 1px solid #ddd;"><span style="background: ${record.role === 'instructor' ? '#ff9800' : '#2196f3'}; color: white; padding: 2px 8px; border-radius: 3px; font-size: 0.85em;">${record.role}</span></td>
+                            <td style="padding: 8px; border: 1px solid #ddd;">${joinTime}</td>
+                            <td style="padding: 8px; border: 1px solid #ddd;"><span style="color: green;">✓ ${record.status}</span></td>
+                        </tr>
+                    `;
+                });
+                
+                attendanceHTML += `
+                            </tbody>
+                        </table>
+                        <div style="margin-top: 15px;">
+                            <button onclick="exportAttendance()" style="padding: 10px 20px; background: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer; margin-right: 10px;">📥 Export CSV</button>
+                            <button onclick="closeAttendanceView()" style="padding: 10px 20px; background: #666; color: white; border: none; border-radius: 5px; cursor: pointer;">✖ Close</button>
+                        </div>
+                    </div>
+                `;
+                
+                // Display attendance in a modal-like overlay
+                let overlay = document.getElementById('attendanceOverlay');
+                if (!overlay) {
+                    overlay = document.createElement('div');
+                    overlay.id = 'attendanceOverlay';
+                    overlay.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 10000; padding: 20px; overflow-y: auto;';
+                    document.body.appendChild(overlay);
+                }
+                overlay.innerHTML = attendanceHTML;
+                overlay.style.display = 'flex';
+                
+                addChatMessage('System', `📋 Attendance report loaded: ${data.statistics.total_attendees} total attendees`);
+            } catch (error) {
+                console.error('Error loading attendance:', error);
+                addChatMessage('System', '❌ Failed to load attendance data');
+            }
+        }
+        
+        function closeAttendanceView() {
+            const overlay = document.getElementById('attendanceOverlay');
+            if (overlay) {
+                overlay.style.display = 'none';
+            }
+        }
+        
+        async function exportAttendance() {
+            try {
+                const response = await fetch(`http://localhost:8001/api/attendance/room/${roomId}/export?format=csv`);
+                const data = await response.json();
+                
+                // Create download link
+                const blob = new Blob([data.content], { type: 'text/csv' });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = data.filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+                
+                addChatMessage('System', '✅ Attendance exported successfully!');
+            } catch (error) {
+                console.error('Error exporting attendance:', error);
+                addChatMessage('System', '❌ Failed to export attendance');
+            }
+        }
+        
         function toggleAllMute() {
             const muteBtn = document.getElementById('muteAllBtn');
             const isMuting = muteBtn.textContent.includes('Mute');
@@ -1040,16 +1273,102 @@
             panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
         }
         
-        function toggleScreenShare() {
-            // Screen sharing functionality (simplified)
+        let screenStream = null;
+        let isScreenSharing = false;
+        
+        async function toggleScreenShare() {
             const shareBtn = document.getElementById('shareBtn');
-            if (shareBtn.textContent.includes('Share')) {
-                shareBtn.innerHTML = '🚫 Stop Share';
-                addChatMessage('System', 'Screen sharing started');
+            
+            if (!isScreenSharing) {
+                try {
+                    // Request screen sharing permission
+                    screenStream = await navigator.mediaDevices.getDisplayMedia({
+                        video: {
+                            cursor: 'always',
+                            displaySurface: 'monitor'
+                        },
+                        audio: false
+                    });
+                    
+                    // Create screen share video element
+                    const screenVideoContainer = document.createElement('div');
+                    screenVideoContainer.id = 'screenShareContainer';
+                    screenVideoContainer.className = 'video-tile screen-share-tile';
+                    screenVideoContainer.style.cssText = 'grid-column: span 2; height: 400px;';
+                    
+                    const screenVideo = document.createElement('video');
+                    screenVideo.id = 'screenShareVideo';
+                    screenVideo.autoplay = true;
+                    screenVideo.playsInline = true;
+                    screenVideo.srcObject = screenStream;
+                    screenVideo.style.width = '100%';
+                    screenVideo.style.height = '100%';
+                    screenVideo.style.objectFit = 'contain';
+                    
+                    const screenLabel = document.createElement('div');
+                    screenLabel.className = 'video-label';
+                    screenLabel.textContent = `📺 ${currentUsername} is sharing screen`;
+                    screenLabel.style.background = 'rgba(76, 175, 80, 0.9)';
+                    
+                    screenVideoContainer.appendChild(screenVideo);
+                    screenVideoContainer.appendChild(screenLabel);
+                    
+                    const videoContainer = document.getElementById('videoContainer');
+                    videoContainer.insertBefore(screenVideoContainer, videoContainer.firstChild);
+                    
+                    // Handle when screen sharing is stopped
+                    screenStream.getVideoTracks()[0].addEventListener('ended', () => {
+                        stopScreenShare();
+                    });
+                    
+                    isScreenSharing = true;
+                    shareBtn.innerHTML = '🚫 Stop Share';
+                    shareBtn.classList.add('active');
+                    
+                    // Notify other participants
+                    if (websocket) {
+                        websocket.send(JSON.stringify({
+                            type: 'screen_share_start',
+                            user_id: userId
+                        }));
+                    }
+                    
+                    addChatMessage('System', '📺 You started screen sharing');
+                    
+                } catch (error) {
+                    console.error('Error starting screen share:', error);
+                    addChatMessage('System', '❌ Failed to start screen sharing. Permission denied or not supported.');
+                }
             } else {
-                shareBtn.innerHTML = '📺 Share';
-                addChatMessage('System', 'Screen sharing stopped');
+                stopScreenShare();
             }
+        }
+        
+        function stopScreenShare() {
+            if (screenStream) {
+                screenStream.getTracks().forEach(track => track.stop());
+                screenStream = null;
+            }
+            
+            const screenContainer = document.getElementById('screenShareContainer');
+            if (screenContainer) {
+                screenContainer.remove();
+            }
+            
+            isScreenSharing = false;
+            const shareBtn = document.getElementById('shareBtn');
+            shareBtn.innerHTML = '📺 Share';
+            shareBtn.classList.remove('active');
+            
+            // Notify other participants
+            if (websocket) {
+                websocket.send(JSON.stringify({
+                    type: 'screen_share_stop',
+                    user_id: userId
+                }));
+            }
+            
+            addChatMessage('System', '📺 Screen sharing stopped');
         }
         
         function toggleVideo() {
@@ -1166,7 +1485,16 @@
             const chatMessages = document.getElementById('chatMessages');
             const messageDiv = document.createElement('div');
             messageDiv.className = 'chat-message';
-            messageDiv.innerHTML = `<strong>${username}:</strong> ${message}`;
+            
+            // Add special styling for system messages
+            if (username === 'System') {
+                messageDiv.classList.add('system');
+                messageDiv.innerHTML = `<strong>🔔 ${username}:</strong> ${message}`;
+            } else {
+                const timestamp = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                messageDiv.innerHTML = `<strong>${username}</strong> <span style="color: #999; font-size: 0.8rem;">${timestamp}</span><br>${message}`;
+            }
+            
             chatMessages.appendChild(messageDiv);
             chatMessages.scrollTop = chatMessages.scrollHeight;
         }

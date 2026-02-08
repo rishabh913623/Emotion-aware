@@ -46,6 +46,7 @@ class ClassroomRoom:
         self.participants: Dict[str, Participant] = {}
         self.created_at = datetime.now()
         self.is_active = True
+        self.session_start_time = datetime.now()
         
     def add_participant(self, participant: Participant):
         self.participants[participant.user_id] = participant
@@ -80,6 +81,7 @@ class ClassroomRoom:
 users_db: Dict[str, dict] = {}  # Simple in-memory user storage
 rooms_db: Dict[str, ClassroomRoom] = {}  # Active rooms
 active_connections: Dict[str, WebSocket] = {}  # User ID -> WebSocket
+attendance_db: Dict[str, List[dict]] = {}  # Room ID -> List of attendance records
 
 # Create FastAPI app
 app = FastAPI(
@@ -291,6 +293,136 @@ async def close_room(room_id: str, user_data: dict):
     
     return {"message": "Room closed successfully"}
 
+# Attendance Management Endpoints
+@app.get("/api/attendance/room/{room_id}")
+async def get_room_attendance(room_id: str):
+    """Get attendance records for a specific room"""
+    # Find room by full or short ID
+    room = find_room_by_id(room_id)
+    if not room:
+        # Check if we have attendance for this room even if it's closed
+        actual_room_id = None
+        if room_id in attendance_db:
+            actual_room_id = room_id
+        else:
+            # Try to find by short ID
+            for rid in attendance_db.keys():
+                if rid.startswith(room_id):
+                    actual_room_id = rid
+                    break
+        
+        if not actual_room_id:
+            raise HTTPException(status_code=404, detail="Room not found or no attendance records")
+        
+        attendance_records = attendance_db.get(actual_room_id, [])
+    else:
+        attendance_records = attendance_db.get(room.room_id, [])
+    
+    # Calculate statistics
+    total_students = sum(1 for record in attendance_records if record["role"] == "student")
+    total_instructors = sum(1 for record in attendance_records if record["role"] == "instructor")
+    
+    return {
+        "room_id": room_id,
+        "attendance_records": attendance_records,
+        "statistics": {
+            "total_attendees": len(attendance_records),
+            "students_present": total_students,
+            "instructors_present": total_instructors
+        },
+        "generated_at": datetime.now().isoformat()
+    }
+
+@app.get("/api/attendance/room/{room_id}/export")
+async def export_attendance(room_id: str, format: str = "json"):
+    """Export attendance records (JSON or CSV format)"""
+    room = find_room_by_id(room_id)
+    
+    # Get attendance records
+    actual_room_id = room.room_id if room else room_id
+    if actual_room_id not in attendance_db and room:
+        # Try to find by short ID
+        for rid in attendance_db.keys():
+            if rid.startswith(room_id):
+                actual_room_id = rid
+                break
+    
+    attendance_records = attendance_db.get(actual_room_id, [])
+    
+    if not attendance_records:
+        raise HTTPException(status_code=404, detail="No attendance records found")
+    
+    if format == "csv":
+        # Generate CSV format
+        csv_content = "User ID,Username,Role,Joined At,Status\n"
+        for record in attendance_records:
+            csv_content += f"{record['user_id']},{record['username']},{record['role']},{record['joined_at']},{record['status']}\n"
+        
+        return {
+            "format": "csv",
+            "content": csv_content,
+            "filename": f"attendance_{room_id[:8]}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+        }
+    else:
+        # JSON format (default)
+        return {
+            "format": "json",
+            "room_id": room_id,
+            "attendance_records": attendance_records,
+            "exported_at": datetime.now().isoformat()
+        }
+
+@app.get("/api/attendance/student/{user_id}")
+async def get_student_attendance_history(user_id: str):
+    """Get attendance history for a specific student across all rooms"""
+    if user_id not in users_db:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    user_attendance = []
+    for room_id, records in attendance_db.items():
+        for record in records:
+            if record["user_id"] == user_id:
+                user_attendance.append({
+                    "room_id": room_id,
+                    "room_short_id": room_id[:8],
+                    **record
+                })
+    
+    return {
+        "user_id": user_id,
+        "username": users_db[user_id]["username"],
+        "total_sessions_attended": len(user_attendance),
+        "attendance_history": user_attendance
+    }
+
+@app.get("/api/attendance/summary")
+async def get_attendance_summary():
+    """Get overall attendance summary across all rooms"""
+    total_records = sum(len(records) for records in attendance_db.values())
+    rooms_with_attendance = len(attendance_db)
+    
+    room_summaries = []
+    for room_id, records in attendance_db.items():
+        room = rooms_db.get(room_id)
+        room_name = room.room_name if room else f"Room {room_id[:8]}"
+        
+        room_summaries.append({
+            "room_id": room_id,
+            "room_short_id": room_id[:8],
+            "room_name": room_name,
+            "total_attendees": len(records),
+            "students_count": sum(1 for r in records if r["role"] == "student"),
+            "first_join": min(r["joined_at"] for r in records) if records else None,
+            "last_join": max(r["joined_at"] for r in records) if records else None
+        })
+    
+    return {
+        "total_attendance_records": total_records,
+        "rooms_with_attendance": rooms_with_attendance,
+        "room_summaries": room_summaries,
+        "generated_at": datetime.now().isoformat()
+    }
+
 def find_room_by_id(room_input: str) -> Optional[ClassroomRoom]:
     """Find room by full ID or short ID (first 8 characters)"""
     # First try exact match
@@ -345,13 +477,17 @@ async def websocket_classroom_endpoint(websocket: WebSocket, room_id: str):
         # Mark user as online
         users_db[user_id]["is_online"] = True
         
+        # 🎯 AUTOMATIC ATTENDANCE TRACKING - Record attendance as soon as user joins
+        attendance_recorded = record_attendance(room.room_id, user_id, username, role)
+        
         # Send current room state to new participant
         await websocket.send_text(json.dumps({
             "type": "room_joined",
             "room_id": room_id,
             "participants": room.get_participant_list(),
             "is_host": user_id == room.host_user_id,
-            "message": f"Welcome to {room.room_name}!"
+            "message": f"Welcome to {room.room_name}!",
+            "attendance_recorded": attendance_recorded
         }))
         
         # Notify other participants
@@ -443,11 +579,19 @@ async def handle_websocket_message(room: ClassroomRoom, user_id: str, message: d
             })
     
     elif message_type == "emotion_update":
-        # Handle emotion recognition data
+        # 🎯 ONLY DETECT STUDENT EMOTIONS - Skip if user is instructor
+        user_role = users_db[user_id].get("role", "student")
+        
+        if user_role == "instructor":
+            # Instructors' emotions are not tracked
+            return
+        
+        # Handle emotion recognition data (STUDENTS ONLY)
         emotion_data = {
             "type": "emotion_update",
             "user_id": user_id,
             "username": users_db[user_id]["username"],
+            "role": user_role,
             "emotion": message.get("emotion", "neutral"),
             "confidence": message.get("confidence", 0.0),
             "timestamp": datetime.now().isoformat()
@@ -461,22 +605,47 @@ async def handle_websocket_message(room: ClassroomRoom, user_id: str, message: d
                 "updated_at": datetime.now().isoformat()
             }
         
-        # Broadcast emotion update to all participants (admin can see all emotions)
-        await room.broadcast_to_all(emotion_data)
+        # Broadcast emotion update only to instructors/admins
+        # Students don't see other students' emotions
+        for participant_id, participant in room.participants.items():
+            if users_db.get(participant_id, {}).get("role") == "instructor":
+                try:
+                    await participant.websocket.send_text(json.dumps(emotion_data))
+                except Exception as e:
+                    print(f"Failed to send emotion to instructor {participant_id}: {e}")
         
         # Store emotion data for analytics (simplified in-memory storage)
         if not hasattr(room, 'emotion_history'):
             room.emotion_history = []
         room.emotion_history.append(emotion_data)
     
+    elif message_type == "screen_share_start":
+        # Handle screen sharing start
+        await room.broadcast_to_all({
+            "type": "screen_share_started",
+            "user_id": user_id,
+            "username": users_db[user_id]["username"],
+            "timestamp": datetime.now().isoformat()
+        }, exclude_user_id=user_id)
+    
+    elif message_type == "screen_share_stop":
+        # Handle screen sharing stop
+        await room.broadcast_to_all({
+            "type": "screen_share_stopped",
+            "user_id": user_id,
+            "username": users_db[user_id]["username"],
+            "timestamp": datetime.now().isoformat()
+        }, exclude_user_id=user_id)
+    
     elif message_type == "webrtc_signal":
-        # Forward WebRTC signaling data
+        # Forward WebRTC signaling data (for video/audio/screen sharing)
         target_user_id = message.get("target_user_id")
         if target_user_id in room.participants:
             await room.participants[target_user_id].websocket.send_text(json.dumps({
                 "type": "webrtc_signal",
                 "from_user_id": user_id,
                 "signal_data": message.get("signal_data"),
+                "signal_type": message.get("signal_type", "video"),  # video, audio, or screen
                 "timestamp": datetime.now().isoformat()
             }))
     
@@ -498,6 +667,31 @@ def analyze_emotions(emotion_history):
     # Group emotions by user
     user_emotions = {}
     emotion_counts = {}
+
+def record_attendance(room_id: str, user_id: str, username: str, role: str):
+    """Automatically record attendance when a student joins the room"""
+    if room_id not in attendance_db:
+        attendance_db[room_id] = []
+    
+    # Check if user already marked present in this session
+    already_recorded = any(
+        record["user_id"] == user_id 
+        for record in attendance_db[room_id]
+    )
+    
+    if not already_recorded:
+        attendance_record = {
+            "user_id": user_id,
+            "username": username,
+            "role": role,
+            "joined_at": datetime.now().isoformat(),
+            "status": "present",
+            "timestamp": datetime.now().timestamp()
+        }
+        attendance_db[room_id].append(attendance_record)
+        print(f"✅ Attendance recorded: {username} ({role}) joined room {room_id[:8]}")
+        return True
+    return False
     
     for entry in emotion_history[-50:]:  # Last 50 entries
         user_id = entry["user_id"]
