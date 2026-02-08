@@ -266,17 +266,34 @@
         }
         
         .control-btn {
-            padding: 10px 15px;
-            border: none;
-            border-radius: 5px;
+            padding: 12px 20px;
+            border: 2px solid transparent;
+            border-radius: 8px;
             background: rgba(255, 255, 255, 0.2);
             color: white;
             cursor: pointer;
-            transition: background 0.3s ease;
+            transition: all 0.3s ease;
+            font-weight: 600;
+            font-size: 0.95rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
         }
         
         .control-btn:hover {
             background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+        }
+        
+        .control-btn.active {
+            background: rgba(76, 175, 80, 0.8);
+            border-color: #4CAF50;
+            box-shadow: 0 0 10px rgba(76, 175, 80, 0.5);
+        }
+        
+        .control-btn.muted {
+            background: rgba(231, 76, 60, 0.8);
+            border-color: #e74c3c;
+            box-shadow: 0 0 10px rgba(231, 76, 60, 0.5);
         }
         
         .control-btn.active {
@@ -524,12 +541,16 @@
             </div>
             
             <div class="controls">
-                <button class="control-btn active" id="videoBtn" onclick="toggleVideo()">📹 Video</button>
-                <button class="control-btn active" id="audioBtn" onclick="toggleAudio()">🎤 Audio</button>
-                <button class="control-btn" id="handBtn" onclick="raiseHand()">🖐️ Hand</button>
-                <button class="control-btn" onclick="toggleParticipants()">👥 Participants</button>
-                <button class="control-btn" onclick="toggleScreenShare()" id="shareBtn">📺 Share</button>
-                <button class="control-btn" onclick="leaveClassroom()">📞 Leave</button>
+                <button class="control-btn active" id="videoBtn" onclick="toggleVideo()" title="Turn camera on/off">📹 Video</button>
+                <button class="control-btn active" id="audioBtn" onclick="toggleAudio()" title="Turn microphone on/off">🎤 Audio</button>
+                <button class="control-btn" id="handBtn" onclick="raiseHand()" title="Raise/lower your hand">🖐️ Hand</button>
+                <button class="control-btn" onclick="toggleParticipants()" title="View participants list">👥 Participants</button>
+                <button class="control-btn" onclick="toggleScreenShare()" id="shareBtn" title="Share your screen">📺 Share</button>
+                <button class="control-btn" onclick="leaveClassroom()" title="Leave classroom">📞 Leave</button>
+            </div>
+            
+            <div style="text-align: center; color: rgba(255,255,255,0.8); font-size: 0.85rem; margin-bottom: 10px;">
+                💡 Tip: Click <strong>📹 Video</strong> or <strong>🎤 Audio</strong> to toggle your camera/microphone
             </div>
             
             <div class="video-container" id="videoContainer">
