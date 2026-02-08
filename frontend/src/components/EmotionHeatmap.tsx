@@ -6,7 +6,7 @@ import {
   Alert,
   CircularProgress,
 } from '@mui/material';
-import { ThermalCamera } from '@mui/icons-material';
+import { Whatshot } from '@mui/icons-material';
 
 interface HeatmapData {
   heatmap_image?: string;
