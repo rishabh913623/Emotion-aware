@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
 Simplified backend runner for development with real user support
+Production-ready for Render deployment
 """
 import sys
 import os
@@ -16,6 +17,11 @@ import json
 import uuid
 from datetime import datetime
 from typing import Dict, List, Optional
+
+# Get environment variables
+PORT = int(os.getenv("PORT", 8001))
+ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
+ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:3001,http://localhost:3000").split(",")
 
 # Data models
 class UserRegistration(BaseModel):
@@ -92,10 +98,10 @@ app = FastAPI(
     redoc_url="/redoc"
 )
 
-# CORS configuration
+# CORS configuration - Allow frontend domains
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:3001", "http://localhost:8080", "*"],
+    allow_origins=ALLOWED_ORIGINS + ["*"],  # Use environment variable + wildcard for development
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
@@ -830,16 +836,17 @@ async def demo_classroom():
     }
 
 if __name__ == "__main__":
-    print("🚀 Starting Emotion-Aware Virtual Classroom Backend (Real Multi-User)")
-    print("📊 Environment: Development")
-    print("🔗 Server will be available at: http://localhost:8001")
-    print("📚 API Documentation: http://localhost:8001/docs")
+    print("🚀 Starting Emotion-Aware Virtual Classroom Backend")
+    print(f"📊 Environment: {ENVIRONMENT}")
+    print(f"🔗 Server will be available at: http://0.0.0.0:{PORT}")
+    print(f"📚 API Documentation: http://0.0.0.0:{PORT}/docs")
     print("👥 Features: Real user registration, WebRTC video, live chat")
     print("🎥 WebSocket: Real-time classroom communication")
+    print(f"🌐 Allowed Origins: {', '.join(ALLOWED_ORIGINS)}")
     
     uvicorn.run(
         app,
         host="0.0.0.0",
-        port=8001,
+        port=PORT,
         log_level="info"
     )
