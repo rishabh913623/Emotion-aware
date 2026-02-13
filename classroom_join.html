@@ -192,17 +192,19 @@
             position: absolute;
             top: 8px;
             right: 8px;
-            width: 24px;
-            height: 24px;
+            width: 32px;
+            height: 32px;
             border-radius: 50%;
-            border: 2px solid white;
+            border: 3px solid white;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 0.8rem;
+            font-size: 1.2rem;
             font-weight: bold;
             animation: emotionPulse 2s infinite;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            box-shadow: 0 3px 8px rgba(0,0,0,0.5);
+            z-index: 10;
+            cursor: help;
         }
         
         .emotion-engaged { background: #2ecc71; }
@@ -994,10 +996,15 @@
         }
         
         function simulateParticipantEmotion(participantId) {
+            console.log(`🎭 Starting emotion simulation for participant: ${participantId}`);
             setInterval(() => {
                 const randomEmotion = emotions[Math.floor(Math.random() * emotions.length)];
                 updateEmotionDisplay(participantId, randomEmotion);
             }, 4000 + Math.random() * 2000); // Vary timing
+            
+            // Show initial emotion immediately
+            const initialEmotion = emotions[Math.floor(Math.random() * emotions.length)];
+            updateEmotionDisplay(participantId, initialEmotion);
         }
         
         function updateEmotionDisplay(participantId, emotion) {
@@ -1006,6 +1013,9 @@
                 emotionElement.className = `emotion-indicator emotion-${emotion}`;
                 emotionElement.textContent = emotionIcons[emotion] || '😐';
                 emotionElement.title = `Current emotion: ${emotion}`;
+                console.log(`📊 Updated emotion for ${participantId}: ${emotion} ${emotionIcons[emotion]}`);
+            } else {
+                console.warn(`⚠️ Emotion element not found for participant: ${participantId}`);
             }
             
             // Update participant data

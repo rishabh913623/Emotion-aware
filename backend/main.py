@@ -7,6 +7,7 @@ from fastapi import FastAPI, HTTPException, Depends, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.security import HTTPBearer
+from fastapi.responses import Response
 import uvicorn
 import os
 from contextlib import asynccontextmanager
@@ -84,6 +85,11 @@ async def root():
             "privacy_compliance"
         ]
     }
+
+@app.get("/favicon.ico")
+async def favicon():
+    """Return empty favicon to prevent 404 errors"""
+    return Response(content=b"", media_type="image/x-icon")
 
 @app.get("/health")
 async def health_check():
