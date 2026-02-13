@@ -1339,7 +1339,7 @@
             }
             
             try {
-                const response = await fetch(`http://localhost:8001/api/attendance/room/${roomId}`);
+                const response = await fetch(`${window.location.protocol}//${window.location.host}/api/attendance/room/${roomId}`);
                 const data = await response.json();
                 
                 // Create attendance display
@@ -1413,7 +1413,7 @@
         
         async function exportAttendance() {
             try {
-                const response = await fetch(`http://localhost:8001/api/attendance/room/${roomId}/export?format=csv`);
+                const response = await fetch(`${window.location.protocol}//${window.location.host}/api/attendance/room/${roomId}/export?format=csv`);
                 const data = await response.json();
                 
                 // Create download link
